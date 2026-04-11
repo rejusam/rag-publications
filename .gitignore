@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+chroma_db/
+*.pyc
+*.pdf
+.DS_Store
+.pytest_cache/
+.env
