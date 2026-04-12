@@ -1,9 +1,9 @@
 """FastAPI backend for the publications RAG chatbot.
 
 Deployment stack:
-    - Embeddings: sentence-transformers (all-MiniLM-L6-v2)
+    - Embeddings: fastembed (ONNX runtime, all-MiniLM-L6-v2) — no PyTorch
     - Vector store: ChromaDB (pre-built, bundled in repo)
-    - LLM: OpenAI gpt-4o-mini (default) or Google Gemini
+    - LLM: Groq llama-3.3-70b-versatile (default), OpenAI, or Gemini
 
 Run locally:
     GROQ_API_KEY=xxx uvicorn api:app --reload --port 8000
@@ -24,12 +24,12 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable, RunnablePassthrough
-from langchain_huggingface import HuggingFaceEmbeddings
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # ─── Config ───────────────────────────────────────────────────────────
 
 CHROMA_DIR = Path(__file__).parent / "chroma_db_deploy"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")  # "groq", "openai", or "gemini"
 RETRIEVER_K = 4
 
@@ -87,7 +87,7 @@ async def lifespan(app: FastAPI):
     """Load models and vector store on startup."""
     global chain
 
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
 
     store = Chroma(
         persist_directory=str(CHROMA_DIR),

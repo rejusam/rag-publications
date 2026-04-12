@@ -1,7 +1,9 @@
 """One-time ingestion for deployment.
 
-Creates a ChromaDB vector store using sentence-transformers embeddings
-(no Ollama required). Run this locally before deploying:
+Creates a ChromaDB vector store using fastembed (ONNX runtime) embeddings.
+No PyTorch, no Ollama — lightweight enough to fit in 512MB RAM at query time.
+
+Run this locally before deploying:
 
     python scripts/ingest_deploy.py
 """
@@ -13,8 +15,8 @@ import sys
 from pathlib import Path
 
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -23,7 +25,7 @@ CHROMA_DIR = PROJECT_ROOT / "chroma_db_deploy"
 
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 def main() -> None:
@@ -62,11 +64,11 @@ def main() -> None:
     print(f"Created {len(chunks)} chunks")
 
     # Embed + store
-    print("\n[3/3] Embedding with sentence-transformers...")
+    print("\n[3/3] Embedding with fastembed (ONNX)...")
     if CHROMA_DIR.exists():
         shutil.rmtree(CHROMA_DIR)
 
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
     Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
