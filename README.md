@@ -2,7 +2,7 @@
 
 A Retrieval-Augmented Generation app that lets users ask natural language questions about my peer-reviewed research papers and receive cited, grounded answers.
 
-Built with LangChain, ChromaDB, Ollama, and Streamlit.
+Built with LangChain, ChromaDB, Ollama, and Streamlit. Also deployed as a **live API** powering a chat widget on my [portfolio site](https://rejusamjohn.pages.dev).
 
 ## Architecture
 
@@ -68,15 +68,99 @@ PYTHONPATH=. streamlit run src/app.py
 ## Project structure
 
 ```
-src/
-├── config.py       # Centralised parameters (chunk size, models, paths)
-├── ingest.py       # PDF loading → chunking → embedding → ChromaDB
-├── retriever.py    # Vector similarity search over stored chunks
-├── chain.py        # LCEL chain: retrieve → prompt → LLM → parse
-└── app.py          # Streamlit chat interface with source display
-tests/
-├── test_ingest.py  # Unit tests for loading and chunking logic
-└── test_chain.py   # Unit tests for prompt formatting and template
+├── api.py                  # FastAPI backend for website chat widget
+├── src/
+│   ├── config.py           # Centralised parameters (chunk size, models, paths)
+│   ├── ingest.py           # PDF loading → chunking → embedding → ChromaDB
+│   ├── retriever.py        # Vector similarity search over stored chunks
+│   ├── chain.py            # LCEL chain: retrieve → prompt → LLM → parse
+│   └── app.py              # Streamlit chat interface with source display
+├── scripts/
+│   └── ingest_deploy.py    # Ingestion with sentence-transformers (for deployment)
+├── tests/
+│   ├── test_ingest.py      # Unit tests for loading and chunking logic
+│   └── test_chain.py       # Unit tests for prompt formatting and template
+├── requirements.txt        # Local development dependencies (Ollama)
+├── requirements-api.txt    # API deployment dependencies (Groq, FastAPI)
+├── Procfile                # Render start command
+└── render.yaml             # Render deployment config
+```
+
+## Live deployment (API + website chat widget)
+
+The app is also deployed as a REST API that powers a chat widget embedded in my [portfolio website](https://rejusamjohn.pages.dev). This uses a different stack from the local Streamlit app to run without Ollama.
+
+### Deployment architecture
+
+| Component | Local (Streamlit) | Deployed (API) |
+|-----------|-------------------|----------------|
+| Embeddings | `nomic-embed-text` via Ollama | `all-MiniLM-L6-v2` via sentence-transformers |
+| LLM | `llama3.2` via Ollama | `llama-3.3-70b-versatile` via Groq (free tier) |
+| Vector store | `chroma_db/` | `chroma_db_deploy/` |
+| Interface | Streamlit chat UI | FastAPI → website JS fetch |
+| Hosting | localhost | Render (free tier) |
+
+### How I deployed it
+
+**Step 1 — Create the deploy vector store**
+
+The deployed API uses `sentence-transformers/all-MiniLM-L6-v2` instead of Ollama for embeddings, so a separate vector store is needed:
+
+```bash
+uv pip install -r requirements-api.txt
+python scripts/ingest_deploy.py
+# Creates chroma_db_deploy/ with sentence-transformers embeddings
+```
+
+**Step 2 — Test the API locally**
+
+```bash
+GROQ_API_KEY=xxx uvicorn api:app --reload --port 8000
+
+# Test
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How does Lassa virus transmit?"}'
+```
+
+The API supports multiple LLM providers via env vars:
+
+| Provider | Env var | Model | Cost |
+|----------|---------|-------|------|
+| Groq (default) | `GROQ_API_KEY` | llama-3.3-70b-versatile | Free (1K req/day) |
+| OpenAI | `OPENAI_API_KEY` + `LLM_PROVIDER=openai` | gpt-4o-mini | ~$0.01/100 queries |
+| Google Gemini | `GOOGLE_API_KEY` + `LLM_PROVIDER=gemini` | gemini-2.0-flash | Free tier (region-dependent) |
+
+**Step 3 — Deploy to Render**
+
+1. Push repo to GitHub (include `chroma_db_deploy/`)
+2. Connect repo on [render.com](https://render.com) → New Web Service
+3. Set environment variable: `GROQ_API_KEY`
+4. Render uses `render.yaml` and `Procfile` automatically
+
+**Step 4 — Wire up the website**
+
+The portfolio site (`rejusamjohn.pages.dev`) has a chat widget in the hero section. The JS sends `POST /ask` requests to the Render API URL. Update `RAG_API_URL` in the website's `script.js` to point to the deployed Render URL.
+
+## Adding new publications
+
+When you add new PDFs to `data/papers/`:
+
+```bash
+# 1. Re-ingest for local Streamlit app (requires Ollama running)
+python -m src.ingest
+
+# 2. Re-ingest for deployed API
+python scripts/ingest_deploy.py
+
+# 3. Test locally
+GROQ_API_KEY=xxx uvicorn api:app --reload --port 8000
+# Ask a question about the new paper to verify retrieval
+
+# 4. Push to GitHub — Render will auto-redeploy
+git add data/papers/new_paper.pdf chroma_db_deploy/
+git commit -m "Add [paper name] to knowledge base"
+git push
 ```
 
 ## Design decisions
@@ -90,6 +174,9 @@ tests/
 | Temperature | 0.1 | Near-deterministic for factual, citation-grounded answers |
 | Retrieval | Top-4 similarity search | Enough for cross-paper synthesis without diluting context |
 | Chunking strategy | `RecursiveCharacterTextSplitter` | Splits on paragraph → sentence → word boundaries, keeping text coherent |
+| Deploy embeddings | `all-MiniLM-L6-v2` (384-dim) | Runs on CPU without Ollama, small footprint (~90MB), widely supported |
+| Deploy LLM | Groq `llama-3.3-70b-versatile` | Free tier (1K req/day), fastest inference provider, 70B quality |
+| API framework | FastAPI | Async-ready, auto-generated docs, CORS built-in, lightweight |
 
 ## Example
 
@@ -118,3 +205,7 @@ PYTHONPATH=. pytest tests/ -v
 - **Streamlit** — web UI
 - **PyPDF** — PDF text extraction
 - **pytest** — unit testing
+- **FastAPI** — REST API for deployed chat widget
+- **sentence-transformers** — deployment embeddings (no Ollama dependency)
+- **Groq** — free LLM inference (llama-3.3-70b-versatile)
+- **Render** — cloud hosting for the API
