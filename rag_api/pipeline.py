@@ -57,8 +57,26 @@ _ITALIC = re.compile(r"\*(\S(?:[^\n*]*\S)?)\*")
 _LEADING_MARKER = re.compile(
     r"(?m)^[ \t]*(?:[-*•][ \t]+(?![ \t\d])|#{1,6}\s+)"
 )
+_INNER_GROUP = re.compile(r"\(([^()]*)\)")
+_BARE_YEAR = re.compile(r"^\d{4}[a-z]?$")
+_MONTH_NAMES = frozenset(
+    {
+        "january", "february", "march", "april", "may", "june", "july",
+        "august", "september", "october", "november", "december",
+    }
+)
+_MONTH_WORD = re.compile(r"[A-Za-z]+")
 
-
+_SURNAME = r"[A-Z][A-Za-z'’\-]+(?:\s+[A-Z][A-Za-z'’\-]+)?"
+_AUTHOR = rf"{_SURNAME}(?:\s+et\s+al\.?|\s+(?:and|&)\s+{_SURNAME})?"
+_YEAR = r"\d{4}[a-z]?"
+_CITATION_ENTRY = re.compile(
+    rf"^(?:(?:see|e\.g\.,?|cf\.)\s+)?"
+    rf"(?P<author>{_AUTHOR}),?[ \t]{{0,3}}(?P<year>{_YEAR})"
+    rf"(?:,[ \t]{{0,3}}\d{{4}}[a-z]?)*"
+    rf"(?:,[ \t]{{0,3}}(?:p|pp)\.[ \t]{{0,3}}[\d\-–]+"
+    rf"|[ \t]{{0,3}}[—–-][ \t]{{0,3}}.+)?$"
+)
 class EmptyAnswerError(RuntimeError):
     """The model produced no usable answer text."""
 
@@ -102,6 +120,139 @@ def strip_markdown(text: str) -> str:
     text = _BOLD.sub(_unwrap, text)
     text = _ITALIC.sub(lambda m: m.group(1), text)
     return _LEADING_MARKER.sub("", text)
+
+
+def _normalise_author(author: str) -> str:
+    return " ".join(author.replace(".", "").replace(",", "").split()).lower()
+
+
+def _has_month_token(author: str) -> bool:
+    return any(w.lower() in _MONTH_NAMES for w in _MONTH_WORD.findall(author))
+
+
+def _split_group_entries(
+    content: str, known: set[tuple[str, int]]
+) -> tuple[list[str], bool]:
+    """Return (kept entries, whether anything in the group was dropped).
+
+    When nothing was dropped, the caller must leave the original group text
+    byte-for-byte unchanged rather than re-joining `kept` — re-joining can
+    silently change formatting a citation-free group never asked to have
+    changed (e.g. "(a;b 2019)" becoming "(a; b 2019)").
+    """
+    if not content.strip():
+        return [], True
+    if not re.search(r"\d{4}", content):
+        return [content], False
+
+    kept: list[str] = []
+    dropped_any = False
+    prev_dropped_citation = False
+    for raw_entry in content.split(";"):
+        entry = raw_entry.strip()
+        if not entry:
+            continue
+        match = _CITATION_ENTRY.match(entry)
+        if match and not _has_month_token(match.group("author")):
+            author = _normalise_author(match.group("author"))
+            year = int(match.group("year")[:4])
+            key = (author, year)
+            if key in known:
+                kept.append(entry)
+                prev_dropped_citation = False
+            else:
+                dropped_any = True
+                prev_dropped_citation = True
+            continue
+        if prev_dropped_citation and _BARE_YEAR.match(entry):
+            dropped_any = True
+            continue  # orphan year left behind by a dropped citation
+        kept.append(entry)
+        prev_dropped_citation = False
+    return kept, dropped_any
+
+
+def _run_filter_pass(text: str, known: set[tuple[str, int]]) -> str:
+    out: list[str] = []
+    last_end = 0
+    n = len(text)
+    for match in _INNER_GROUP.finditer(text):
+        start, end = match.span()
+        kept, dropped_any = _split_group_entries(match.group(1), known)
+        prefix_text = text[last_end:start]
+
+        if not dropped_any:
+            # Nothing removed: leave the group exactly as it was written.
+            out.append(prefix_text)
+            out.append(match.group(0))
+            last_end = end
+            continue
+
+        if kept:
+            out.append(prefix_text)
+            out.append(f"({'; '.join(kept)})")
+            last_end = end
+            continue
+
+        # Every entry in the group was dropped: remove it via plain local
+        # tidy only. An earlier version tried to detect and remove the
+        # whole broken sentence that followed, but reliable sentence-end
+        # detection is its own hard problem (abbreviations, quotes, nested
+        # citations, quadratic-time scans) and not worth the risk here —
+        # so the "sentence" itself is left alone; only the one boundary
+        # letter that would otherwise start mid-word gets capitalised.
+        so_far = "".join(out) + prefix_text
+        stripped = so_far.rstrip(" ")
+        is_sentence_start = not stripped or stripped[-1] in ".!?\n"
+
+        left_trim = 1 if so_far and so_far[-1] == " " else 0
+        out.append(prefix_text[: len(prefix_text) - left_trim])
+        # No preceding space survived (either nothing precedes the group at
+        # all, or it was preceded by a newline or other non-space
+        # boundary): absorb one following space too, so the removal never
+        # leaves a stray leading space or an orphaned separator behind.
+        # Otherwise, only absorb a following space when it precedes
+        # `.`/`,`/`;` — a plain word-separating space is left in place.
+        right_extra = 1 if (
+            end < n and text[end] == " "
+            and (left_trim == 0 or (end + 1 < n and text[end + 1] in ".,;"))
+        ) else 0
+        last_end = end + right_extra
+
+        if is_sentence_start:
+            peek = last_end
+            if peek < n and text[peek] == " ":
+                peek += 1
+            if peek < n and text[peek].islower():
+                out.append(text[last_end:peek])
+                out.append(text[peek].upper())
+                last_end = peek + 1
+
+    out.append(text[last_end:])
+    return "".join(out)
+
+
+def filter_citations(text: str, sources: Sequence[Source]) -> str:
+    """Drop parenthesised citations that don't name a retrieved paper.
+
+    Models sometimes cite references that only appear inside the
+    retrieved paper text (works those papers themselves cite), not the
+    papers actually retrieved. Enforce "only cite retrieved papers"
+    deterministically instead of relying solely on the prompt.
+
+    Runs to a fixed point so a nested group left empty by one pass
+    (e.g. "((Smith et al., 2019))") is cleaned up by the next.
+    """
+    known = {
+        (_normalise_author(source.authors_short), source.year)
+        for source in sources
+        if source.authors_short and source.year
+    }
+    previous = None
+    while previous != text:
+        previous = text
+        text = _run_filter_pass(text, known)
+    return text
 
 
 def _citation_label(
@@ -154,9 +305,11 @@ class Pipeline:
         text = strip_reasoning(raw)
         text = normalise_citations(text)
         text = strip_markdown(text)
+        sources = resolve_sources(docs, self._papers)
+        text = filter_citations(text, sources)
         if not text:
             raise EmptyAnswerError("model returned no answer text")
-        return Answer(text=text, sources=resolve_sources(docs, self._papers))
+        return Answer(text=text, sources=sources)
 
 
 def build_retriever(chroma_dir: Path = CHROMA_DIR) -> Runnable:
