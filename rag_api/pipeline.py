@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import unicodedata
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -65,9 +66,24 @@ _MONTH_NAMES = frozenset(
         "august", "september", "october", "november", "december",
     }
 )
-_MONTH_WORD = re.compile(r"[A-Za-z]+")
+_MONTH_WORD = re.compile(r"[^\W\d_]+")
 
-_SURNAME = r"[A-Z][A-Za-z'’\-]+(?:\s+[A-Z][A-Za-z'’\-]+)?"
+# Lowercase name particles that may precede a surname ("van der Berg").
+_PARTICLES = (
+    "van", "von", "der", "den", "de", "del", "della", "da", "di", "du",
+    "le", "la", "dos", "das", "ter", "ten", "'d", "’d", "bin", "al-",
+)
+_PARTICLE_SET = frozenset(_PARTICLES)
+_PARTICLE = "(?:" + "|".join(re.escape(p) for p in _PARTICLES) + r")\s+"
+# A surname word is Unicode letters plus apostrophes and hyphens (no digits
+# or underscores). ‐/‑ are the hyphen and non-breaking hyphen gpt-oss
+# frequently emits in place of ASCII "-" (e.g. "Fichet‑Calvet"). Python's
+# `re` can't express "uppercase letter", so the capitalised first letter
+# is checked in code by `_is_surname_author`.
+_SURNAME_WORD = r"[^\W\d_](?:[^\W\d_]|['’\-‐‑])+"
+_SURNAME = (
+    rf"(?:{_PARTICLE}){{0,3}}{_SURNAME_WORD}(?:\s+{_SURNAME_WORD})?"
+)
 _AUTHOR = rf"{_SURNAME}(?:\s+et\s+al\.?|\s+(?:and|&)\s+{_SURNAME})?"
 _YEAR = r"\d{4}[a-z]?"
 _CITATION_ENTRY = re.compile(
@@ -77,6 +93,8 @@ _CITATION_ENTRY = re.compile(
     rf"(?:,[ \t]{{0,3}}(?:p|pp)\.[ \t]{{0,3}}[\d\-–]+"
     rf"|[ \t]{{0,3}}[—–-][ \t]{{0,3}}.+)?$"
 )
+
+
 class EmptyAnswerError(RuntimeError):
     """The model produced no usable answer text."""
 
@@ -123,7 +141,35 @@ def strip_markdown(text: str) -> str:
 
 
 def _normalise_author(author: str) -> str:
-    return " ".join(author.replace(".", "").replace(",", "").split()).lower()
+    # Fold the hyphen look-alikes gpt-oss uses (‐, ‑) to ASCII "-"
+    # so a hyphenated surname matches regardless of which one was written;
+    # this only affects the matching key, never the answer text itself.
+    author = unicodedata.normalize("NFC", author)
+    author = author.replace("‐", "-").replace("‑", "-")
+    return " ".join(author.replace(".", "").replace(",", "").split()).casefold()
+
+
+_ET_AL_SUFFIX = re.compile(r"\s+et\s+al\.?$")
+_AUTHOR_JOINER = re.compile(r"\s+(?:and|&)\s+")
+
+
+def _is_surname_author(author: str) -> bool:
+    """Check each surname has at most 3 leading particles then 1–2 words
+    whose first letter is uppercase ("van der Berg", "Lo Iacono", "Ødegaard").
+
+    Rejects lowercase phrases the regex alone would accept ("in 2019",
+    "de facto, 2019") so they are kept verbatim as non-citations.
+    """
+    author = _ET_AL_SUFFIX.sub("", author)
+    for surname in _AUTHOR_JOINER.split(author):
+        words = surname.split()
+        particles = 0
+        while particles < 3 and len(words) > 1 and words[0] in _PARTICLE_SET:
+            words = words[1:]
+            particles += 1
+        if not 1 <= len(words) <= 2 or not all(w[0].isupper() for w in words):
+            return False
+    return True
 
 
 def _has_month_token(author: str) -> bool:
@@ -152,8 +198,14 @@ def _split_group_entries(
         entry = raw_entry.strip()
         if not entry:
             continue
-        match = _CITATION_ENTRY.match(entry)
-        if match and not _has_month_token(match.group("author")):
+        # NFC for matching only, so a decomposed "Mu\u0308ller" still parses;
+        # a kept entry is appended exactly as written.
+        match = _CITATION_ENTRY.match(unicodedata.normalize("NFC", entry))
+        if (
+            match
+            and _is_surname_author(match.group("author"))
+            and not _has_month_token(match.group("author"))
+        ):
             author = _normalise_author(match.group("author"))
             year = int(match.group("year")[:4])
             key = (author, year)

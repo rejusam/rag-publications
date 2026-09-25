@@ -217,6 +217,57 @@ def test_filter_citations_many_dropped_sentence_starts_is_fast():
     assert time.perf_counter() - start < 0.3
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("shed virus (Fichet‑Calvet et al., 2014).", "shed virus."),
+        ("shed virus (Fichet‐Calvet et al., 2014).", "shed virus."),
+        ("(Fichet-Calvet et al., 2014)", ""),
+    ],
+)
+def test_filter_citations_drops_unicode_hyphen_surname(raw, expected):
+    assert filter_citations(raw, FILTER_SOURCES) == expected
+
+
+def test_filter_citations_keeps_unicode_hyphen_surname_matching_ascii_source():
+    sources = [*FILTER_SOURCES, Source(
+        title="Fichet-Calvet paper", authors_short="Fichet-Calvet et al.", year=2014,
+    )]
+    raw = "shed virus (Fichet‑Calvet et al., 2014)."
+    assert filter_citations(raw, sources) == raw
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("shed (Müller et al., 2019).", "shed."),
+        ("shed (Gómez et al., 2020).", "shed."),
+        ("shed (Ødegaard et al., 2018).", "shed."),
+        ("shed (van der Berg et al., 2017).", "shed."),
+        ("shed (in 2019).", "shed (in 2019)."),
+        ("shed (de facto, 2019).", "shed (de facto, 2019)."),
+    ],
+)
+def test_filter_citations_unicode_and_particle_surnames(raw, expected):
+    assert filter_citations(raw, FILTER_SOURCES) == expected
+
+
+@pytest.mark.parametrize(
+    ("authors_short", "year", "raw"),
+    [
+        ("Gómez et al.", 2020, "shed (Gómez et al., 2020)."),
+        ("van der Berg et al.", 2017, "shed (van der Berg et al., 2017)."),
+    ],
+)
+def test_filter_citations_keeps_in_corpus_unicode_and_particle_surnames(
+    authors_short, year, raw
+):
+    sources = [*FILTER_SOURCES, Source(
+        title="Extra paper", authors_short=authors_short, year=year,
+    )]
+    assert filter_citations(raw, sources) == raw
+
+
 def test_ask_drops_out_of_corpus_citations_keeps_in_corpus():
     llm = FakeListChatModel(
         responses=["Spread happens via contact (John et al., 2024; Lo Iacono et al., 2015)."]
