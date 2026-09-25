@@ -1,0 +1,44 @@
+{
+  "Reviews of Geophysics - 2025 Land Use Change and Infectious Disease Emergence": {
+    "title": "Land use change and infectious disease emergence",
+    "authors_short": "Rulli et al.",
+    "year": 2025,
+    "journal": "Reviews of Geophysics",
+    "doi": "10.1029/2022RG000785"
+  },
+  "coronavirus spillover risk hotspots": {
+    "title": "Using drivers and transmission pathways to identify SARS-like coronavirus spillover risk hotspots",
+    "authors_short": "Muylaert et al.",
+    "year": 2023,
+    "journal": "Nature Communications",
+    "doi": "10.1038/s41467-023-42627-2"
+  },
+  "john-et-al-2024-high-connectivity-and-human-movement-limits-the-impact-of-travel-time-on-infectious-disease-transmission": {
+    "title": "High connectivity and human movement limits the impact of travel time on infectious disease transmission",
+    "authors_short": "John et al.",
+    "year": 2024,
+    "journal": "Journal of The Royal Society Interface",
+    "doi": "10.1098/rsif.2023.0425"
+  },
+  "john-et-al-2024-modelling-lassa-virus-dynamics-in-west-african-mastomys-natalensis-and-the-impact-of-human-activities": {
+    "title": "Modelling Lassa virus dynamics in West African Mastomys natalensis and the impact of human activities",
+    "authors_short": "John et al.",
+    "year": 2024,
+    "journal": "Journal of The Royal Society Interface",
+    "doi": "10.1098/rsif.2024.0106"
+  },
+  "present-and-future-distribution-of-bat-hosts-of-sarbecoviruses-implications-for-conservation-and": {
+    "title": "Present and future distribution of bat hosts of sarbecoviruses: implications for conservation and public health",
+    "authors_short": "Muylaert et al.",
+    "year": 2022,
+    "journal": "Proceedings of the Royal Society B",
+    "doi": "10.1098/rspb.2022.0397"
+  },
+  "transmission-models-indicate-ebola-virus-persistence-in-non-human-primate-populations-is-unlikely": {
+    "title": "Transmission models indicate Ebola virus persistence in non-human primate populations is unlikely",
+    "authors_short": "Hayman et al.",
+    "year": 2022,
+    "journal": "Journal of The Royal Society Interface",
+    "doi": "10.1098/rsif.2021.0638"
+  }
+}

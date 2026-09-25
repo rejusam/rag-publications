@@ -1,0 +1,11 @@
+# Direct runtime dependencies of the deployed API.
+# Regenerate pins with:
+#   uv pip compile requirements-api.in --python-version 3.11 -o requirements-api.txt
+fastapi
+uvicorn[standard]
+pydantic>=2.6
+langchain-core
+langchain-community
+langchain-groq
+chromadb
+fastembed

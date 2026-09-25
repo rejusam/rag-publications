@@ -6,6 +6,10 @@ requiring a running LLM or vector store.
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("langchain_ollama", reason="local Ollama stack not installed")
+
 from langchain_core.documents import Document
 
 from src.chain import SYSTEM_TEMPLATE, format_docs

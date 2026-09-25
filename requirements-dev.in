@@ -1,0 +1,7 @@
+# Test and lint tooling on top of the runtime pins.
+# Regenerate with:
+#   uv pip compile requirements-dev.in --python-version 3.11 -o requirements-dev.txt
+-r requirements-api.in
+pytest
+httpx
+ruff

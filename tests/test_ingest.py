@@ -7,10 +7,13 @@ tests you run manually).
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("langchain_ollama", reason="local Ollama stack not installed")
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from langchain_core.documents import Document
 
 from src.ingest import chunk_documents, load_papers

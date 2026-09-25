@@ -1,0 +1,17 @@
+[
+  {"id": "c1", "question": "Does travel time between places matter for how fast an epidemic spreads when a network is highly connected?", "expected": "john-et-al-2024-high-connectivity-and-human-movement-limits-the-impact-of-travel-time-on-infectious-disease-transmission"},
+  {"id": "c2", "question": "What effect does restricting human movement have on infectious disease transmission?", "expected": "john-et-al-2024-high-connectivity-and-human-movement-limits-the-impact-of-travel-time-on-infectious-disease-transmission"},
+  {"id": "l1", "question": "How do human activities affect Lassa virus dynamics in Mastomys natalensis?", "expected": "john-et-al-2024-modelling-lassa-virus-dynamics-in-west-african-mastomys-natalensis-and-the-impact-of-human-activities"},
+  {"id": "l2", "question": "Which rodent is the reservoir of Lassa virus in West Africa?", "expected": "john-et-al-2024-modelling-lassa-virus-dynamics-in-west-african-mastomys-natalensis-and-the-impact-of-human-activities"},
+  {"id": "e1", "question": "Is it likely that Ebola virus persists in non-human primate populations?", "expected": "transmission-models-indicate-ebola-virus-persistence-in-non-human-primate-populations-is-unlikely"},
+  {"id": "e2", "question": "What do transmission models suggest about primates as an Ebola reservoir?", "expected": "transmission-models-indicate-ebola-virus-persistence-in-non-human-primate-populations-is-unlikely"},
+  {"id": "b1", "question": "Where are the bat hosts of sarbecoviruses distributed now and in the future?", "expected": "present-and-future-distribution-of-bat-hosts-of-sarbecoviruses-implications-for-conservation-and"},
+  {"id": "b2", "question": "What are the conservation implications of where sarbecovirus bat hosts live?", "expected": "present-and-future-distribution-of-bat-hosts-of-sarbecoviruses-implications-for-conservation-and"},
+  {"id": "s1", "question": "Which drivers and transmission pathways are used to find SARS-like coronavirus spillover hotspots?", "expected": "coronavirus spillover risk hotspots"},
+  {"id": "s2", "question": "Where are the hotspots of SARS-like coronavirus spillover risk?", "expected": "coronavirus spillover risk hotspots"},
+  {"id": "g1", "question": "How does land use change contribute to infectious disease emergence?", "expected": "Reviews of Geophysics - 2025 Land Use Change and Infectious Disease Emergence"},
+  {"id": "g2", "question": "What role does deforestation play in the emergence of new infectious diseases?", "expected": "Reviews of Geophysics - 2025 Land Use Change and Infectious Disease Emergence"},
+  {"id": "u1", "question": "What is the recommended adult dose of paracetamol?", "expected": null},
+  {"id": "u2", "question": "What did these papers find about influenza vaccination rates in New Zealand schools?", "expected": null},
+  {"id": "u3", "question": "Who won the 2023 Rugby World Cup?", "expected": null}
+]
