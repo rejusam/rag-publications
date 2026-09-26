@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 from langchain_core.documents import Document
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.runnables import RunnableLambda
 
-from rag_api.app import create_app
+from rag_api.app import client_ip, create_app
 from rag_api.config import Settings
 from rag_api.pipeline import Pipeline
 from rag_api.sources import Source
@@ -194,3 +195,68 @@ def test_middleware_catches_unhandled_errors_without_leaking():
     assert r.json() == {"error": "unavailable"}
     assert "secret" not in r.text
     assert r.headers.get("x-request-id")
+
+
+@pytest.mark.parametrize(
+    ("primary_status", "fallback_status", "expected_status", "expected_body"),
+    [
+        (404, 429, 429, {"error": "rate_limited"}),
+        (429, 404, 503, {"error": "unavailable"}),
+    ],
+)
+def test_last_model_failure_decides_status(
+    primary_status, fallback_status, expected_status, expected_body
+):
+    llms = [raising(primary_status), raising(fallback_status)]
+    with TestClient(make_app(llms)) as client:
+        r = client.post("/ask", json={"question": "How does Lassa spread?"})
+    assert r.status_code == expected_status
+    assert r.json() == expected_body
+
+
+def test_fallback_in_model_list_answers_when_primary_fails():
+    with TestClient(make_app([raising(404), ok_llm("From fallback.")])) as client:
+        r = client.post("/ask", json={"question": "How does Lassa spread?"})
+    assert r.status_code == 200
+    assert r.json()["answer"] == "From fallback."
+
+
+def test_unhandled_error_response_carries_cors_headers():
+    app = make_app(ok_llm())
+
+    @app.get("/boom")
+    def boom():
+        raise RuntimeError("secret")
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        r = client.get("/boom", headers={"Origin": "https://rejusamjohn.pages.dev"})
+    assert r.status_code == 500
+    assert r.json() == {"error": "unavailable"}
+    assert (
+        r.headers.get("access-control-allow-origin")
+        == "https://rejusamjohn.pages.dev"
+    )
+    assert r.headers.get("x-request-id")
+
+
+def test_rate_limited_body_is_fixed():
+    app = make_app(ok_llm(), Settings(rate_limit_per_min=1))
+    with TestClient(app) as client:
+        client.post("/ask", json={"question": "why?"})
+        r = client.post("/ask", json={"question": "why?"})
+    assert r.status_code == 429
+    assert r.json() == {"error": "rate_limited"}
+
+
+def test_ask_is_503_before_startup():
+    cold = TestClient(make_app(ok_llm()))  # no context manager -> no lifespan
+    r = cold.post("/ask", json={"question": "How does Lassa spread?"})
+    assert r.status_code == 503
+    assert r.json() == {"error": "unavailable"}
+
+
+def test_client_ip_falls_back_to_socket_address():
+    request = Request(
+        {"type": "http", "headers": [], "client": ("192.0.2.5", 51234)}
+    )
+    assert client_ip(request) == "192.0.2.5"

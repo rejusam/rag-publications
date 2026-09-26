@@ -84,14 +84,6 @@ def create_app(
     app = FastAPI(title="Ask My Research API", lifespan=lifespan)
     app.state.pipeline = None
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=list(settings.allowed_origins),
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
-        expose_headers=["X-Request-ID"],
-    )
-
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
         request.state.request_id = uuid.uuid4().hex[:12]
@@ -104,6 +96,17 @@ def create_app(
             response = _error(500, "unavailable")
         response.headers["X-Request-ID"] = request.state.request_id
         return response
+
+    # Added last so it is the outermost middleware: the 500 built by
+    # add_request_id above still passes through it and gets CORS headers,
+    # so a browser sees "unavailable" rather than a CORS failure.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(settings.allowed_origins),
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+        expose_headers=["X-Request-ID"],
+    )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(

@@ -16,7 +16,7 @@ flowchart LR
     S --> A
 ```
 
-The question is embedded with the same model used at ingest time (`fastembed`, running `all-MiniLM-L6-v2` as ONNX, no PyTorch or GPU required). Chroma returns the 4 most similar chunks by cosine similarity. Those chunks are formatted into a prompt and sent to Groq. If the primary model fails or times out, the request retries once against the fallback model before the API gives up. Sources returned to the caller are looked up from `papers.json` using the chunks that were actually retrieved, not parsed out of the model's answer, so a paper can only be cited if it was genuinely part of the context.
+The question is embedded with the same model used at ingest time (`fastembed`, running `all-MiniLM-L6-v2` as ONNX, no PyTorch or GPU required). Chroma returns the 4 most similar chunks by cosine similarity. Those chunks are formatted into a prompt and sent to Groq. If the primary model times out or hits a temporary error, that call is retried once; if it still fails, or the error is permanent (such as "model not found"), the request goes straight to the fallback model, which gets the same treatment before the API gives up. When both fail, the status returned reflects the fallback model's failure. Sources returned to the caller are looked up from `papers.json` using the chunks that were actually retrieved, not parsed out of the model's answer, so a paper can only be cited if it was genuinely part of the context.
 
 ## API
 
@@ -50,8 +50,8 @@ Error responses:
 | Status | Body | When |
 |---|---|---|
 | 422 | `{"error": "invalid_question"}` | Question is missing, not a string, or outside 3–500 characters after trimming |
-| 429 | `{"error": "rate_limited"}` | Caller has exceeded the per-client rate limit |
-| 503 | `{"error": "unavailable"}` | Pipeline isn't ready yet, or both the primary and fallback model calls failed |
+| 429 | `{"error": "rate_limited"}` | Caller has exceeded the per-client rate limit, or both models failed and the fallback's failure was a Groq rate limit |
+| 503 | `{"error": "unavailable"}` | Pipeline isn't ready yet, or both the primary and fallback model calls failed for any other reason |
 | 500 | `{"error": "unavailable"}` | Unhandled server error |
 
 Every response, success or error, carries an `X-Request-ID` header for tracing a single call through the logs.
@@ -69,7 +69,7 @@ Read from environment variables (see `.env.example`):
 | `GROQ_API_KEY` | — | Required. No default; the API refuses to start without it |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Primary generation model |
 | `GROQ_FALLBACK_MODEL` | `openai/gpt-oss-20b` | Used if the primary model call fails or times out |
-| `LLM_TIMEOUT_S` | `30` | Timeout per model call, in seconds; one retry is attempted on failure |
+| `LLM_TIMEOUT_S` | `20` | Timeout per model call, in seconds; a timeout or temporary error is retried once |
 | `RATE_LIMIT_PER_MIN` | `10` | Requests allowed per client per minute (fixed window, keyed by client IP) |
 | `ALLOWED_ORIGINS` | production site + local dev origins | Comma-separated list of CORS origins allowed to call `/ask` |
 
@@ -102,7 +102,7 @@ Both write to [`eval/results.md`](eval/results.md), which lists retrieval hit ra
 
 ## Deployment
 
-The API is deployed on Render's free tier, configured by `render.yaml`. `GROQ_API_KEY` is set in the Render dashboard rather than in `render.yaml` since it's a secret; `GROQ_MODEL` and `GROQ_FALLBACK_MODEL` are set from `render.yaml` but can be overridden in the dashboard. The health check path is `/health`.
+The API is deployed on Render's free tier, configured by `render.yaml`. `GROQ_API_KEY` is set in the Render dashboard rather than in `render.yaml` since it's a secret; `GROQ_MODEL` and `GROQ_FALLBACK_MODEL` are set in `render.yaml`, so change them there. The health check path is `/health`.
 
 Render's free tier spins the instance down after around 15 minutes of inactivity. The first request after that takes roughly 30–60 seconds while the instance wakes up and the pipeline reloads; the website's chat widget shows a "waking up" message during that window rather than failing silently.
 

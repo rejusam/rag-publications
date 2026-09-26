@@ -339,19 +339,40 @@ def format_docs(docs: Sequence[Document], papers: Mapping[str, Source]) -> str:
 
 class Pipeline:
     def __init__(
-        self, retriever: Runnable, llm: Runnable, papers: Mapping[str, Source]
+        self,
+        retriever: Runnable,
+        llms: Runnable | Sequence[Runnable],
+        papers: Mapping[str, Source],
     ) -> None:
+        """`llms` is one model, or models to try in order (primary first)."""
+        if isinstance(llms, Runnable):
+            llms = [llms]
+        if not llms:
+            raise ValueError("at least one model is required")
         self._retriever = retriever
-        self._generate = (
-            ChatPromptTemplate.from_template(SYSTEM_TEMPLATE)
-            | llm
-            | StrOutputParser()
-        )
+        prompt = ChatPromptTemplate.from_template(SYSTEM_TEMPLATE)
+        self._generators = [prompt | llm | StrOutputParser() for llm in llms]
         self._papers = papers
+
+    def _generate(self, inputs: Mapping[str, str]) -> str:
+        """Try each model in turn; if all fail, raise the last failure.
+
+        An explicit loop rather than LangChain's `with_fallbacks`, which
+        re-raises the first model's error: the caller maps the error to a
+        status code, and it should reflect the model that failed last.
+        """
+        last_error: Exception | None = None
+        for generate in self._generators:
+            try:
+                return generate.invoke(inputs)
+            except Exception as exc:
+                last_error = exc
+        assert last_error is not None
+        raise last_error
 
     def ask(self, question: str) -> Answer:
         docs = self._retriever.invoke(question)
-        raw = self._generate.invoke(
+        raw = self._generate(
             {"context": format_docs(docs, self._papers), "question": question}
         )
         text = strip_reasoning(raw)
@@ -391,7 +412,5 @@ def build_pipeline(settings: Settings) -> Pipeline:
             max_retries=1,
         )
 
-    llm = groq(settings.groq_model).with_fallbacks(
-        [groq(settings.groq_fallback_model)]
-    )
-    return Pipeline(build_retriever(), llm, load_papers())
+    llms = [groq(settings.groq_model), groq(settings.groq_fallback_model)]
+    return Pipeline(build_retriever(), llms, load_papers())

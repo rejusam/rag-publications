@@ -353,3 +353,28 @@ def test_build_pipeline_requires_api_key(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
         build_pipeline(Settings())
+
+
+def test_model_list_raises_last_failure_when_all_fail():
+    class FirstError(Exception):
+        pass
+
+    class LastError(Exception):
+        pass
+
+    def raise_first(_):
+        raise FirstError()
+
+    def raise_last(_):
+        raise LastError()
+
+    pipeline = Pipeline(
+        RETRIEVER, [RunnableLambda(raise_first), RunnableLambda(raise_last)], PAPERS
+    )
+    with pytest.raises(LastError):
+        pipeline.ask("q?")
+
+
+def test_model_list_uses_fallback_when_primary_fails():
+    llms = [RunnableLambda(failing), FakeListChatModel(responses=["From fallback."])]
+    assert Pipeline(RETRIEVER, llms, PAPERS).ask("q?").text == "From fallback."

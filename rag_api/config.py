@@ -19,7 +19,7 @@ DEFAULT_ORIGINS: tuple[str, ...] = (
 class Settings:
     groq_model: str = "openai/gpt-oss-120b"
     groq_fallback_model: str = "openai/gpt-oss-20b"
-    llm_timeout_s: float = 30.0
+    llm_timeout_s: float = 20.0
     rate_limit_per_min: int = 10
     allowed_origins: tuple[str, ...] = DEFAULT_ORIGINS
 

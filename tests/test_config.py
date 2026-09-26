@@ -11,7 +11,7 @@ def test_defaults_match_spec():
     s = Settings.from_env({})
     assert s.groq_model == "openai/gpt-oss-120b"
     assert s.groq_fallback_model == "openai/gpt-oss-20b"
-    assert s.llm_timeout_s == 30.0
+    assert s.llm_timeout_s == 20.0
     assert s.rate_limit_per_min == 10
     assert "https://rejusamjohn.pages.dev" in s.allowed_origins
     assert "http://localhost:5500" in s.allowed_origins
