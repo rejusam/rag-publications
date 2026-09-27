@@ -18,9 +18,25 @@ jobs:
           uv venv
           uv pip install -r requirements-dev.txt
       - name: Lint
-        run: .venv/bin/ruff check rag_api api.py eval tests/test_config.py tests/test_sources.py tests/test_ratelimit.py tests/test_pipeline.py tests/test_api.py tests/test_live.py
+        run: .venv/bin/ruff check rag_api api.py eval tests/test_config.py tests/test_sources.py tests/test_ratelimit.py tests/test_pipeline.py tests/test_api.py tests/test_live.py scripts/export_chunks.py tests/test_export_chunks.py
       - name: Test
         run: .venv/bin/pytest
+
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run
 
   secrets:
     runs-on: ubuntu-latest

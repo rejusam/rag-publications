@@ -1,0 +1,36 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "ask-my-research",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-09-20",
+	"observability": {
+		"enabled": true
+	},
+	"ai": {
+		"binding": "AI"
+	},
+	"vectorize": [
+		{
+			"binding": "VECTORIZE",
+			"index_name": "research-chunks",
+			"remote": true
+		}
+	],
+	"ratelimits": [
+		{
+			"name": "RATE_LIMITER",
+			"namespace_id": "1001",
+			"simple": {
+				"limit": 10,
+				"period": 60
+			}
+		}
+	],
+	"vars": {
+		"GROQ_MODEL": "openai/gpt-oss-120b",
+		"FALLBACK_MODEL": "@cf/openai/gpt-oss-120b",
+		"GATEWAY_ID": "ask-my-research",
+		"ALLOWED_ORIGINS": "https://rejusamjohn.pages.dev,http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080"
+	}
+	// GROQ_API_KEY is a secret: npx wrangler secret put GROQ_API_KEY
+}
