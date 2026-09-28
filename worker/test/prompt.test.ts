@@ -6,8 +6,8 @@ const PAPERS: Record<string, Source> = {
   lassa: { title: "Lassa paper", authors_short: "John et al.", year: 2024, journal: null, doi: null },
 };
 const DOCS: Chunk[] = [
-  { text: "Rodents shed virus.", source_file: "lassa" },
-  { text: "More on rodents.", source_file: "lassa" },
+  { text: "Rodents shed virus.", source_file: "lassa", page: null },
+  { text: "More on rodents.", source_file: "lassa", page: null },
 ];
 
 describe("formatDocs", () => {
@@ -20,12 +20,12 @@ describe("formatDocs", () => {
   });
 
   it("uses the raw source file for unmapped keys", () => {
-    const text = formatDocs([{ text: "Unmapped text.", source_file: "unmapped-key" }], PAPERS);
+    const text = formatDocs([{ text: "Unmapped text.", source_file: "unmapped-key", page: null }], PAPERS);
     expect(text).toContain("[Source: unmapped-key]");
   });
 
   it("uses 'unknown' when a chunk has no source file", () => {
-    expect(formatDocs([{ text: "x", source_file: null }], PAPERS)).toContain("[Source: unknown]");
+    expect(formatDocs([{ text: "x", source_file: null, page: null }], PAPERS)).toContain("[Source: unknown]");
   });
 
   it("disambiguates shared author–year labels with six title words", () => {
@@ -34,7 +34,7 @@ describe("formatDocs", () => {
       "john-b": { title: "Modelling Lassa virus dynamics in rodents and human spillover risk", authors_short: "John et al.", year: 2024, journal: null, doi: null },
     };
     const text = formatDocs(
-      [{ text: "A text.", source_file: "john-a" }, { text: "B text.", source_file: "john-b" }],
+      [{ text: "A text.", source_file: "john-a", page: null }, { text: "B text.", source_file: "john-b", page: null }],
       papers,
     );
     expect(text).toContain("[Source: John et al., 2024 — Travel time and disease transmission across]");

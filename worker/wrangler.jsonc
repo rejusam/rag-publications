@@ -30,7 +30,7 @@
 		"GROQ_MODEL": "openai/gpt-oss-120b",
 		"FALLBACK_MODEL": "@cf/openai/gpt-oss-120b",
 		"GATEWAY_ID": "ask-my-research",
-		"ALLOWED_ORIGINS": "https://rejusamjohn.pages.dev,http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080"
+		"ALLOWED_ORIGINS": "https://rejusamjohn.pages.dev,https://tasmanlab.com,https://tasmanlab-djs.pages.dev,https://preview.tasmanlab-djs.pages.dev,http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080"
 	}
 	// GROQ_API_KEY is a secret: npx wrangler secret put GROQ_API_KEY
 }

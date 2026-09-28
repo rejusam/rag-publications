@@ -9,8 +9,8 @@ const PAPERS: Record<string, Source> = {
   lassa: { title: "Lassa paper", authors_short: "John et al.", year: 2024, journal: null, doi: null },
 };
 const DOCS: Chunk[] = [
-  { text: "Rodents shed virus.", source_file: "lassa" },
-  { text: "More on rodents.", source_file: "lassa" },
+  { text: "Rodents shed virus.", source_file: "lassa", page: 3 },
+  { text: "More on rodents.", source_file: "lassa", page: 5 },
 ];
 const fixed = (text: string): Llm => ({ name: "fake", complete: async () => text });
 const deps = (llms: Llm[], docs: Chunk[] = DOCS): Deps => ({ retrieve: async () => docs, llms, papers: PAPERS });
@@ -18,7 +18,7 @@ const deps = (llms: Llm[], docs: Chunk[] = DOCS): Deps => ({ retrieve: async () 
 describe("ask", () => {
   it("returns a clean answer and resolved sources", async () => {
     const result = await ask(deps([fixed("<think>hmm</think>Via rodent contact.")]), "How does Lassa spread?");
-    expect(result).toEqual({ answer: "Via rodent contact.", sources: [PAPERS.lassa] });
+    expect(result).toEqual({ answer: "Via rodent contact.", sources: [{ ...PAPERS.lassa, pages: [3, 5] }] });
   });
 
   it("normalises full-width citation brackets", async () => {

@@ -17,9 +17,12 @@ export async function retrieve(
   for (const match of result.matches) {
     const meta = (match.metadata ?? {}) as Record<string, unknown>;
     if (typeof meta.text !== "string" || !meta.text) continue;
+    // Stored pages come from PyPDF and count from 0; people count from 1.
+    const page = typeof meta.page === "number" && Number.isInteger(meta.page) && meta.page >= 0 ? meta.page + 1 : null;
     chunks.push({
       text: meta.text,
       source_file: typeof meta.source_file === "string" ? meta.source_file : null,
+      page,
     });
   }
   return chunks;

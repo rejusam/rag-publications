@@ -11,7 +11,7 @@ const PAPERS: Record<string, Source> = {
 
 let limiterSuccess = true;
 let llms: Llm[] = [];
-const retrieveFn = vi.fn(async () => [{ text: "Rodents shed virus.", source_file: "lassa" }]);
+const retrieveFn = vi.fn(async () => [{ text: "Rodents shed virus.", source_file: "lassa", page: 3 }]);
 
 function env(): Env {
   return {
@@ -22,7 +22,7 @@ function env(): Env {
     GROQ_MODEL: "m",
     FALLBACK_MODEL: "f",
     GATEWAY_ID: "g",
-    ALLOWED_ORIGINS: `${ORIGIN}, http://localhost:5500`,
+    ALLOWED_ORIGINS: `${ORIGIN}, http://localhost:5500, https://tasmanlab.com`,
   };
 }
 const handler = makeHandler((): Deps => ({ retrieve: retrieveFn, llms, papers: PAPERS }));
@@ -56,7 +56,10 @@ describe("ask", () => {
   it("answers with sources and CORS headers", async () => {
     const res = await handler(post(askBody("How does Lassa spread?")), env());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ answer: "Via rodents (John et al., 2024).", sources: [PAPERS.lassa] });
+    expect(await res.json()).toEqual({
+      answer: "Via rodents (John et al., 2024).",
+      sources: [{ ...PAPERS.lassa, pages: [3] }],
+    });
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
     expect(res.headers.get("Access-Control-Expose-Headers")).toBe("X-Request-ID");
   });
@@ -156,6 +159,16 @@ describe("CORS and routing", () => {
   it("allows the second configured origin despite surrounding spaces", async () => {
     const res = await handler(post(askBody("How does Lassa spread?"), { "Content-Type": "application/json", Origin: "http://localhost:5500" }), env());
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:5500");
+  });
+
+  it("allows the tasmanlab.com origin", async () => {
+    const res = await handler(post(askBody("How does Lassa spread?"), { "Content-Type": "application/json", Origin: "https://tasmanlab.com" }), env());
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://tasmanlab.com");
+  });
+
+  it("gives a tasmanlab.com subdomain no allow-origin header", async () => {
+    const res = await handler(post(askBody("How does Lassa spread?"), { "Content-Type": "application/json", Origin: "https://evil.tasmanlab.com" }), env());
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
   });
 
   it("returns 405 for the wrong method and 404 for unknown paths", async () => {
