@@ -18,7 +18,7 @@ const deps = (llms: Llm[], docs: Chunk[] = DOCS): Deps => ({ retrieve: async () 
 describe("ask", () => {
   it("returns a clean answer and resolved sources", async () => {
     const result = await ask(deps([fixed("<think>hmm</think>Via rodent contact.")]), "How does Lassa spread?");
-    expect(result).toEqual({ answer: "Via rodent contact.", sources: [{ ...PAPERS.lassa, pages: [3, 5] }] });
+    expect(result).toEqual({ answer: "Via rodent contact.", sources: [{ ...PAPERS.lassa, pages: [3, 5] }], status: "answered" });
   });
 
   it("normalises full-width citation brackets", async () => {
@@ -59,6 +59,20 @@ describe("ask", () => {
 
   it("still asks the model when retrieval finds nothing, and returns no sources", async () => {
     const result = await ask(deps([fixed("The papers do not cover that.")], []), "q?");
-    expect(result).toEqual({ answer: "The papers do not cover that.", sources: [] });
+    expect(result).toEqual({ answer: "The papers do not cover that.", sources: [], status: "answered" });
+  });
+
+  it("reports status none and strips the STATUS line from the answer", async () => {
+    const result = await ask(
+      deps([fixed("STATUS: none\nThe papers do not cover treatment (John et al., 2024).")]),
+      "q?",
+    );
+    expect(result.status).toBe("none");
+    expect(result.answer.startsWith("STATUS")).toBe(false);
+  });
+
+  it("defaults to status answered when the model omits the STATUS line", async () => {
+    const result = await ask(deps([fixed("Plain answer.")]), "q?");
+    expect(result.status).toBe("answered");
   });
 });

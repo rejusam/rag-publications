@@ -51,6 +51,7 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("Never cite references that appear inside the context text");
     expect(prompt).toContain("Write in plain prose without Markdown");
     expect(prompt).toContain("Use British/NZ spelling");
+    expect(prompt).toContain("Begin your reply with exactly one line: STATUS: answered, STATUS: partial or STATUS: none.");
   });
 
   it("inserts text containing $ patterns literally", () => {

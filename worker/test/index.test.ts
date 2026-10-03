@@ -59,9 +59,21 @@ describe("ask", () => {
     expect(await res.json()).toEqual({
       answer: "Via rodents (John et al., 2024).",
       sources: [{ ...PAPERS.lassa, pages: [3] }],
+      status: "answered",
     });
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
     expect(res.headers.get("Access-Control-Expose-Headers")).toBe("X-Request-ID");
+  });
+
+  it("includes the status from the model's STATUS line", async () => {
+    llms = [{ name: "ok", complete: async () => "STATUS: partial\nSome of it." }];
+    const res = await handler(post(askBody("How does Lassa spread?")), env());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      answer: "Some of it.",
+      sources: [{ ...PAPERS.lassa, pages: [3] }],
+      status: "partial",
+    });
   });
 
   it.each([

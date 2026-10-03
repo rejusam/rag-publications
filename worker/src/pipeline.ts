@@ -4,6 +4,7 @@ import { generateWithFallback, type Llm } from "./llm.ts";
 import { resolveSources } from "./papers.ts";
 import { filterCitations, normaliseCitations, stripMarkdown, stripReasoning } from "./postprocess.ts";
 import { buildPrompt, formatDocs } from "./prompt.ts";
+import { splitStatus, type AnswerStatus } from "./status.ts";
 import type { Chunk, CitedSource, Source } from "./types.ts";
 
 export interface Deps {
@@ -20,15 +21,18 @@ export class EmptyAnswerError extends Error {
   }
 }
 
-export async function ask(deps: Deps, question: string): Promise<{ answer: string; sources: CitedSource[] }> {
+export async function ask(
+  deps: Deps,
+  question: string,
+): Promise<{ answer: string; sources: CitedSource[]; status: AnswerStatus }> {
   const chunks = await deps.retrieve(question);
   const prompt = buildPrompt(formatDocs(chunks, deps.papers), question);
   const raw = await generateWithFallback(deps.llms, prompt);
-  let text = stripReasoning(raw);
-  text = normaliseCitations(text);
+  const split = splitStatus(stripReasoning(raw));
+  let text = normaliseCitations(split.text);
   text = stripMarkdown(text);
   const sources = resolveSources(chunks, deps.papers);
   text = filterCitations(text, sources);
   if (!text) throw new EmptyAnswerError();
-  return { answer: text, sources };
+  return { answer: text, sources, status: split.status };
 }
