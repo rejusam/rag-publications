@@ -41,9 +41,12 @@ Response (200):
       "journal": "Journal of The Royal Society Interface",
       "doi": "10.1098/rsif.2024.0106"
     }
-  ]
+  ],
+  "status": "answered"
 }
 ```
+
+`status` is `"answered"`, `"partial"` or `"none"`, read from a `STATUS:` line the model is prompted to put first and which never reaches the caller as text. `"partial"` means the papers only cover part of the question; `"none"` means they don't answer it at all, and `answer` then falls back to a fixed line rather than whatever the model wrote. This is a Worker-only addition: the FastAPI app below doesn't set it.
 
 Error responses:
 
@@ -108,7 +111,7 @@ Render's free tier spins the instance down after around 15 minutes of inactivity
 
 ## Cloudflare Worker (production)
 
-The chat widget runs on a Cloudflare Worker, on Cloudflare's edge instead of a free-tier VM that spins down. `worker/` holds this rewrite in TypeScript, with the same `/ask` contract as the FastAPI app.
+The chat widget runs on a Cloudflare Worker, on Cloudflare's edge instead of a free-tier VM that spins down. `worker/` holds this rewrite in TypeScript, with the same `/ask` contract as the FastAPI app plus the `status` field described above.
 
 **What runs where:**
 
