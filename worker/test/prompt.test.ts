@@ -68,3 +68,10 @@ describe("no-answer instruction", () => {
     expect(text).not.toContain("say so honestly");
   });
 });
+
+describe("premise corrections", () => {
+  it("counts correcting a question's premise as an answer, not none", () => {
+    const text = buildPrompt(formatDocs(DOCS, PAPERS), "Can rats give people Lassa fever?");
+    expect(text).toContain("If the papers correct the question's premise");
+  });
+});
