@@ -60,3 +60,11 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("what about $'?");
   });
 });
+
+describe("no-answer instruction", () => {
+  it("tells the model to open a none answer with the plain line", () => {
+    const text = buildPrompt(formatDocs(DOCS, PAPERS), "Who won the 2023 Rugby World Cup?");
+    expect(text).toContain("start the answer with exactly: These papers don’t cover that.");
+    expect(text).not.toContain("say so honestly");
+  });
+});

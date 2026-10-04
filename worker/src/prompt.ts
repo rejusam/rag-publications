@@ -9,8 +9,9 @@ Use none when the context does not answer the question, partial when it answers 
 it, and answered otherwise. Then write the answer on the following lines.
 - Answer the question using ONLY the provided context from his \
 published peer-reviewed papers.
-- If the context does not contain enough information to answer, \
-say so honestly — do not hallucinate.
+- If the context does not answer the question (STATUS: none), start the answer with exactly: \
+These papers don’t cover that. Then, only if the context holds something closely related, add \
+one short sentence saying what the papers do cover on it. Never guess or hallucinate.
 - Cite only the papers named in the [Source: ...] tags, using that \
 label in brackets, e.g. (John et al., 2024).
 - Never cite references that appear inside the context text (for \

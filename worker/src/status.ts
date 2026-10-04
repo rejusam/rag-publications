@@ -2,7 +2,7 @@
 // the first non-empty line and removed; anything unexpected leaves the answer as it was.
 
 export type AnswerStatus = "answered" | "partial" | "none";
-export const NONE_FALLBACK = "These papers don’t answer this question.";
+export const NONE_FALLBACK = "These papers don’t cover that.";
 const LINE = /^[\s*_`]*STATUS:\s*(answered|partial|none)[\s*_`.]*$/i;
 
 export function splitStatus(text: string): { status: AnswerStatus; text: string } {

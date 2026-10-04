@@ -28,3 +28,9 @@ describe("splitStatus", () => {
     expect(splitStatus("STATUS: answered")).toEqual({ status: "answered", text: "" });
   });
 });
+
+describe("no-answer wording", () => {
+  it("falls back to the plain line the cards use", () => {
+    expect(NONE_FALLBACK).toBe("These papers don’t cover that.");
+  });
+});
